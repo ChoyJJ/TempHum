@@ -7,26 +7,22 @@
 // include the library code:
 #include <LiquidCrystal.h>
 
-
-#define DHTPIN 5
-// Digital pin connected to the DHT sensor, connected to D1
+#define DHTPIN 14
+// Digital pin connected to the DHT sensor, connected to D5
 // Feather HUZZAH ESP8266 note: use pins 3, 4, 5, 12, 13 or 14 --
 
-//Button for Temperature only (D5 pin)
-#define BTN1 14
-//Button for Temperature and Humidity (D2 pin)
-#define BTN2 4
+//Button for Temperature only (D0 pin)
+#define BTN1 16
+//Button for Temperature and Humidity (D1 pin)
+#define BTN2 5
 
 // Define the type of DHT used, In this project DHT11 is used
 #define DHTTYPE DHT11   // DHT 11
 
-
-
-
 DHT dht(DHTPIN, DHTTYPE);
 //Setting pin for Reset, Enable, D4, D5,D6,D7
-//Pin connected D3, D3, D5, D6, D7, Tx
-LiquidCrystal lcd(2, 0, 15, 13, 12, 1);
+//Pin connected D3, D4, D6, D7, D8, Tx
+LiquidCrystal lcd(0, 2, 12, 13, 15, 1);
 float h, t;
 //Set the LCD number of text and number of lines
 const int LCDTEXT = 16, LCDLINE = 2;
@@ -35,14 +31,11 @@ int BTNMODE = 0;
 
 void setup() {
   dht.begin();
-  //Make sure the pin is not used for SD function and only as GPIO
-  pinMode(BTN1, FUNCTION_3);
   pinMode(BTN1, INPUT);
   pinMode(BTN2, INPUT);
   delay(1000);
   lcd.begin(LCDTEXT, LCDLINE);
-  lcd.print("TEST");
-  //Check for input at both pin to make sure they are in their initial condition
+  lcd.print("Initialising");
   int rt = 0;
   while (digitalRead(BTN1) || digitalRead(BTN2)) {
     rt = rt + 1;
@@ -50,9 +43,11 @@ void setup() {
     lcd.setCursor(0, 1);
     lcd.print(rt / 10);
     if (rt == 50) {
-      lcd.setCursor(0, 1);
-      lcd.print("Restarting...");
-      delay(1000);
+      lcd.clear();
+      lcd.print("Check wire");
+      lcd.setCursor(0,1);
+      lcd.print("connection.");
+      delay(2000);
       ESP.restart();
     }
   }

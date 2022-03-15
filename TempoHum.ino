@@ -44,7 +44,7 @@ bool res;
 //Set the LCD number of text and number of lines
 const int LCDTEXT = 16, LCDLINE = 2;
 int BTNR = 0, BTNL = 0, REJWiFi = 0, URLP = 0, UIDP = 0, POST_interval = 0, Timeout = 0;
-int prevTime, currentTime, duration;
+int prevTime, currentTime, duration, POSTprevTime;
 
 void setup() {
   //Start DHT
@@ -236,6 +236,7 @@ void loop() {
           lcd.print("General Use");
           POST_interval = 5*60*1000;
           prevTime = currentTime;
+          POSTprevTime = millis();
         }
         else if(BTNL == 2){
           lcd.clear();
@@ -244,11 +245,13 @@ void loop() {
           lcd.print("Office/Home");
           POST_interval = 30*60*1000;
           prevTime = currentTime;
+          POSTprevTime = millis();
         }
         else{
           lcd.clear();
           lcd.print("Reset interval");
           BTNL = 0;
+          POST_interval = 0;
           prevTime = currentTime;
         }
       }
@@ -264,27 +267,46 @@ void loop() {
   }
   else if (RightBTN) {
     BTNR++;
-    URLP = 0;
-    UIDP = 0;
-    if (BTNR == 1 && URLP == 0) {
+    RightBTN = 0;
+    prevTime = millis();
+    if (BTNR == 1) {
       Serial.println("URL:");
       Serial.println(WebURL);
-      URLP = 1;
-      prevTime = currentTime;
+      do{
+      currentTime=millis();
+      if(digitalRead(BTN2)||digitalRead(BTN1)){
+        return;
+      }
+      duration = currentTime - prevTime;
+       }while(duration<3000);
       return;
     }
-    else if (BTNR == 2 && UIDP == 0) {
+    else if (BTNR == 2 ) {
       Serial.println("UID:");
       Serial.println(UID);
-      UIDP = 1;
-      prevTime = currentTime;
+      do{
+      currentTime=millis();
+      if(digitalRead(BTN2)||digitalRead(BTN1)){
+        return;
+      }
+      duration = currentTime - prevTime;
+       }while(duration<3000);
       return;
     }
-    else if (BTNR > 2) {
+    else {
       BTNR = 0;
-      prevTime = currentTime;
       return;
     }
+  }
+  currentTime = millis();
+  duration = currentTime - POSTprevTime;
+  if(duration > POST_interval && POST_interval > 0){
+    DHTSENSOR();
+    if (WiFi.status() == WL_CONNECTED){
+      POSTREQ();
+    }
+    DHTLCDPRINT();
+    POSTprevTime = currentTime;
   }
 
 }
@@ -302,7 +324,6 @@ void DHTLCDPRINT() {
 }
 
 void DHTSENSOR() {
-  delay(2000);
   float H = dht.readHumidity();
   float T = dht.readTemperature();
   h = (int)H * 100.0;

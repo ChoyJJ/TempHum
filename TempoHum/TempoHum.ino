@@ -43,8 +43,8 @@ int h, t;
 bool res;
 //Set the LCD number of text and number of lines
 const int LCDTEXT = 16, LCDLINE = 2;
-int BTNR = 0, BTNL = 0, REJWiFi = 0, URLP = 0, UIDP = 0, POST_interval = 0, Timeout = 0;
-int prevTime, currentTime, duration;
+int BTNR = 0, BTNL = 0, REJWiFi = 0, URLP = 0, UIDP = 0, POST_interval = 300000, Timeout = 0, LeftBTN = 0, RightBTN = 0;
+int prevTime, currentTime, duration, POSTprevTime;
 
 void setup() {
   //Start DHT
@@ -59,17 +59,17 @@ void setup() {
   lcd.begin(LCDTEXT, LCDLINE);
   lcd.print("Initialising");
   Serial.println("Initialising");
-  //If possible, figure out how the secure network protocol work 
+  //If possible, figure out how the secure network protocol work
   wifiClient.setInsecure();
   //Set as station to connect to WiFi
-  WiFi.mode(WIFI_STA); 
+  WiFi.mode(WIFI_STA);
   //Set WiFi manager portal to timeout in 3 minutes
   wm.setConfigPortalTimeout(180);
-  // reset settings - wipe stored credentials 
+  // reset settings - wipe stored credentials
   //wm.resetSettings();
   //Start WiFi manager to connect to WiFi, if no WiFi go into Access Point
   //Access point started with Name and Password
-  res = wm.autoConnect("ESP32Test", "12345678abcdefg"); 
+  res = wm.autoConnect("ESP32Test", "12345678abcdefg");
   //if WiFi Connection fails
   if (!res) {
     Serial.println("Failed to connect");
@@ -96,7 +96,7 @@ void setup() {
       }
     }
 
-    if (digitalRead(BTN1)||Timeout == 1) {
+    if (digitalRead(BTN1) || Timeout == 1) {
       lcd.clear();
       lcd.print("Restarting...");
       Serial.println("Restarting");
@@ -121,17 +121,30 @@ void setup() {
     Serial.println("IP address: ");
     Serial.println(WiFi.localIP());
   }
+  lcd.clear();
+  lcd.print("5min interval");
+  lcd.setCursor(0, 1);
+  lcd.print("Outdoor Use");
   prevTime = millis();
+  do {
+      currentTime = millis();
+      duration = currentTime - prevTime;
+      if (digitalRead(BTN1) || digitalRead(BTN2)) {
+        return;
+      }
+      delay(10);
+    } while (duration < 2000);
+  POSTprevTime = millis();
 }
 
 void loop() {
-  int LeftBTN;
-  int RightBTN;
   do {
     LeftBTN = digitalRead(BTN1);
     RightBTN = digitalRead(BTN2);
     delay(10);
-  } while (digitalRead(BTN1)|| digitalRead(BTN2) && !(digitalRead(BTN1) && digitalRead(BTN2)) );
+    Serial.println("Running" + String(LeftBTN) + String(RightBTN));
+  } while (digitalRead(BTN1) || digitalRead(BTN2) && !(digitalRead(BTN1) && digitalRead(BTN2)) );
+  Serial.println("Test");
   if (WiFi.status() == WL_DISCONNECTED && REJWiFi == 0) {
     Serial.println("WiFi Disconnected");
     lcd.clear();
@@ -189,26 +202,32 @@ void loop() {
     lcd.print("Left");
     lcd.setCursor(0, 1);
     lcd.print("Set Interval");
+    Serial.println("Left: Set Interval");
     prevTime = millis();
-    do{
+    do {
       currentTime = millis();
       duration = currentTime - prevTime;
-      if(digitalRead(BTN1)||digitalRead(BTN2)){
+      if (digitalRead(BTN1) || digitalRead(BTN2)) {
         return;
       }
-    }while(duration < 2000);
+      delay(10);
+    } while (duration < 2000);
     lcd.clear();
     lcd.print("Right");
     lcd.setCursor(0, 1);
     lcd.print("Menu");
-    do{
+    Serial.println("Right Menu");
+    prevTime = millis();
+    do {
       currentTime = millis();
       duration = currentTime - prevTime;
-      if(digitalRead(BTN1)||digitalRead(BTN2)){
+      if (digitalRead(BTN1) || digitalRead(BTN2)) {
         return;
       }
-    }while(duration < 2000);
+      delay(10);
+    } while (duration < 2000);
   }
+  Serial.println(String(LeftBTN) + String(RightBTN));
   if (LeftBTN && RightBTN) {
     Serial.println("Resetting for WiFi connection");
     lcd.clear();
@@ -218,44 +237,43 @@ void loop() {
     prevTime = millis();
     return;
   }
-
   else if (LeftBTN) {
+    Serial.println("Left");
     prevTime = millis();
-    do{
-      currentTime=millis();
-      while(digitalRead(BTN1)){
+    do {
+      currentTime = millis();
+      while (digitalRead(BTN1)) {
         LeftBTN = 1;
       }
-      if(LeftBTN){
+      if (LeftBTN) {
         BTNL++;
         LeftBTN = 0;
-        if(BTNL == 1){
+        if (BTNL == 1) {
+          lcd.clear();
+          lcd.print("1min interval");
+          lcd.setCursor(0, 1);
+          lcd.print("Outdoor Use");
+          POST_interval = 5 * 1000;
+          Serial.println(POST_interval);
+          prevTime = currentTime;
+          POSTprevTime = millis();
+        }
+        else {
           lcd.clear();
           lcd.print("5min interval");
-          lcd.setCursor(0,1);
-          lcd.print("General Use");
+          lcd.setCursor(0, 1);
+          lcd.print("Outdoor Use");
+          //Set to 5 minute interval
           POST_interval = 5*60*1000;
-          prevTime = currentTime;
-        }
-        else if(BTNL == 2){
-          lcd.clear();
-          lcd.print("30min interval");
-          lcd.setCursor(0,1);
-          lcd.print("Office/Home");
-          POST_interval = 30*60*1000;
-          prevTime = currentTime;
-        }
-        else{
-          lcd.clear();
-          lcd.print("Reset interval");
           BTNL = 0;
           prevTime = currentTime;
         }
       }
       duration = currentTime - prevTime;
-    }while(duration<5000);
+      delay(10);
+    } while (duration < 5000);
     DHTSENSOR();
-    if (WiFi.status() == WL_CONNECTED){
+    if (WiFi.status() == WL_CONNECTED) {
       POSTREQ();
     }
     DHTLCDPRINT();
@@ -263,75 +281,84 @@ void loop() {
     return;
   }
   else if (RightBTN) {
+    Serial.println("Right");
     BTNR++;
-    URLP = 0;
-    UIDP = 0;
-    if (BTNR == 1 && URLP == 0) {
+    if (BTNR == 1) {
       Serial.println("URL:");
       Serial.println(WebURL);
       URLP = 1;
-      prevTime = currentTime;
       return;
     }
-    else if (BTNR == 2 && UIDP == 0) {
+    else if (BTNR == 2) {
       Serial.println("UID:");
       Serial.println(UID);
       UIDP = 1;
-      prevTime = currentTime;
       return;
     }
     else if (BTNR > 2) {
       BTNR = 0;
+      DHTLCDPRINT();
       prevTime = currentTime;
       return;
     }
   }
-
+  currentTime = millis();
+  duration = currentTime - POSTprevTime;
+  Serial.println(duration);
+  if(duration > POST_interval && POST_interval > 0){
+    DHTSENSOR();
+    if (WiFi.status() == WL_CONNECTED){
+      POSTREQ();
+    }
+    DHTLCDPRINT();
+    POSTprevTime = currentTime;
+  }
+  delay(1000);
 }
 
 
 void DHTLCDPRINT() {
   lcd.begin(16, 2);
   lcd.setCursor(0, 0);
-  lcd.print("Temp: " + String(t/100.0) + char(223) + "C ");
+  lcd.print("Temp: " + String(t / 100.0) + char(223) + "C ");
   lcd.setCursor(0, 1);
-  lcd.print("Humid: " + String(h/100.0) + "% ");
+  lcd.print("Humid: " + String(h / 100.0) + "% ");
   Serial.println("Temp: " + String(t / 100.0) + "°C ");
-  Serial.println("Humid: " + String(h/100.0) + "% ");
+  Serial.println("Humid: " + String(h / 100.0) + "% ");
   delay(100);
 }
 
 void DHTSENSOR() {
-  delay(2000);
   float H = dht.readHumidity();
   float T = dht.readTemperature();
   h = (int)H * 100.0;
   t = (int)T * 100.0;
 }
 
-void POSTREQ(){
+void POSTREQ() {
   String response;
-      HTTPClient http;
-      sprintf(POSTURL, "%slist/sensor/%s.json", WebURL, UID);
-      Serial.println("Sending data");
-      lcd.clear();
-      lcd.print("Sending data");
-      http.begin(wifiClient, POSTURL);
-      StaticJsonDocument<256> dat;
-      String postjson;
-      dat["UID"] = UID;
-      dat["Temperature"] = t / 100.0;
-      dat["Humidity"] = h / 100.0;
-      serializeJson(dat, postjson);
-      http.addHeader("Content-Type", "application/json");
-      int httpResponseCode = http.POST(postjson);
-      Serial.println("HttpResponse=" + String(httpResponseCode));
-      response = http.getString();
-      Serial.println(response);
-      if(httpResponseCode >= 200 && httpResponseCode <300){
-        lcd.clear();
-        lcd.print("Data sent");
-        Serial.println("Data sent");
-      }
-      http.end();
+  HTTPClient http;
+  sprintf(POSTURL, "%slist/sensor/%s.json", WebURL, UID);
+  Serial.println("Sending data");
+  lcd.clear();
+  lcd.print("Sending data");
+  http.begin(wifiClient, POSTURL);
+  StaticJsonDocument<256> dat;
+  String postjson;
+  dat["UID"] = UID;
+  dat["Temperature"] = t / 100.0;
+  dat["Humidity"] = h / 100.0;
+  serializeJson(dat, postjson);
+  Serial.println(POSTURL + postjson);
+  http.addHeader("Content-Type", "application/json");
+  int httpResponseCode = http.POST(postjson);
+  Serial.println("HttpResponse=" + String(httpResponseCode));
+  response = http.getString();
+  Serial.println(response);
+  if (httpResponseCode >= 200 && httpResponseCode < 300) {
+    lcd.clear();
+    lcd.print("Data sent");
+    Serial.println("Data sent");
+  }
+  http.end();
 }

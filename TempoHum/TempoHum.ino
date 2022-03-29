@@ -125,7 +125,6 @@ void setup() {
   lcd.print("5min interval");
   lcd.setCursor(0, 1);
   lcd.print("Outdoor Use");
-  Serial.println("Starting");
   prevTime = millis();
   do {
       currentTime = millis();

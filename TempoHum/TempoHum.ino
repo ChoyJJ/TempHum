@@ -11,9 +11,9 @@
 // Digital pin connected to the DHT sensor, connected to D5
 // Feather HUZZAH ESP8266 note: use pins 3, 4, 5, 12, 13 or 14 --
 
-//Button for Temperature only (D0 pin)
+//Button for Left (D0 pin)
 #define BTN1 16
-//Button for Temperature and Humidity (D1 pin)
+//Button for Right (D1 pin)
 #define BTN2 5
 
 // Uncomment whatever type you're using!
@@ -30,8 +30,8 @@ DHT dht(DHTPIN, DHTTYPE);
 WiFiManager wm;
 //WiFiServer server(80);
 //Setting pin for Reset, Enable, D4, D5,D6,D7
-//Pin connected D3, D4, D6, D7, D8, Tx(1), Change back to TX when //Serial not in use
-LiquidCrystal lcd(0, 2, 12, 13, 15, 10);
+//Pin connected D3, D4, D6, D7, D8, Tx(1), Change back to TX when Serial not in use
+LiquidCrystal lcd(0, 2, 12, 13, 15, 1);
 
 const char* UID = "123456";
 const char* WebURL = "https://tempo-hum-web-ui.vercel.app/";
@@ -50,7 +50,7 @@ int prevTime, currentTime, duration, POSTprevTime;
 void setup() {
   //Start DHT
   dht.begin();
-  ////Serial monitor for debugging
+  //Serial monitor for debugging
   //Serial.begin(9600);
   //Set input pins for button at D0 and D1
   pinMode(BTN1, INPUT);
@@ -70,6 +70,11 @@ void setup() {
   //wm.resetSettings();
   //Start WiFi manager to connect to WiFi, if no WiFi go into Access Point
   //Access point started with Name and Password
+  delay(1000);
+    lcd.clear();
+    lcd.print("Starting WiFi");
+    lcd.setCursor(0, 1);
+    lcd.print("Manager");
   res = wm.autoConnect("TEMPOHUM", "SENSYNC+TEMPOHUM");
   //if WiFi Connection fails
   if (!res) {
@@ -100,15 +105,15 @@ void setup() {
       delay(10);
     }
     while (digitalRead(BTN1) || digitalRead(BTN2)) {}
-    //Press Left button to restart the ESP
-    if (digitalRead(BTN1)) {
+    //Press right button to restart the ESP
+    if (digitalRead(BTN2)) {
       lcd.clear();
       lcd.print("Restarting...");
       //Serial.println("Restarting");
       ESP.restart();
     }
-    //Press right button
-    else if (digitalRead(BTN2) || Timeout == 1) {
+    //Press left button
+    else if (digitalRead(BTN1) || Timeout == 1) {
       REJWiFi = 1;
       Timeout = 0;
       lcd.clear();
@@ -159,8 +164,11 @@ void loop() {
     LeftBTN = digitalRead(BTN1);
     RightBTN = digitalRead(BTN2);
     delay(1);
+    if(LeftBTN && RightBTN){
+      break;
+    }
   } while (digitalRead(BTN1) || digitalRead(BTN2) && !(digitalRead(BTN1) && digitalRead(BTN2)) );
-  if (WiFi.status() == WL_DISCONNECTED && REJWiFi == 0) {
+  if ((WiFi.status() == 1 || WiFi.status() == 7) && REJWiFi == 0) {
     //Serial.println("WiFi Disconnected");
     lcd.clear();
     lcd.print("WiFi Disconnected");
@@ -183,6 +191,7 @@ void loop() {
       lcd.print("Left for skip");
       //Serial.print("Right for rst");
       //Serial.print("Left for skip");
+      prevTime = millis();
       while (digitalRead(BTN1) == 0 && digitalRead(BTN2) == 0) {
         currentTime = millis();
         duration = currentTime - prevTime;
@@ -194,13 +203,13 @@ void loop() {
         }
         delay(10);
       }
-      if (digitalRead(BTN1)) {
+      if (digitalRead(BTN2)) {
         lcd.clear();
         lcd.print("Retry");
         //Serial.println("Retry");
         return;
       }
-      else if (digitalRead(BTN2)) {
+      else if (digitalRead(BTN1)||Timeout==1) {
         REJWiFi = 1;
         lcd.clear();
         lcd.print("Continue without");
@@ -222,6 +231,7 @@ void loop() {
       //Serial.println(WiFi.localIP());
     }
     delay(1000);
+    DHTLCDPRINT();
   }
 
   if (LeftBTN && RightBTN) {
@@ -239,7 +249,9 @@ void loop() {
       delay(10);
       if (duration > 5000)
       {
+        
         wm.resetSettings();
+        WiFi.disconnect();
         lcd.clear();
         lcd.print("WiFi reset");
         delay(1000);
@@ -381,7 +393,7 @@ void POSTREQ() {
   dat["UID"] = UID;
   dat["Temperature"] = t / 100.0;
   dat["Humidity"] = h / 100.0;
-  //SerializeJson(dat, postjson);
+  serializeJson(dat, postjson);
   //Serial.println(POSTURL + postjson);
   http.addHeader("Content-Type", "application/json");
   int httpResponseCode = http.POST(postjson);

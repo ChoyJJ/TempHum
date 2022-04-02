@@ -44,7 +44,7 @@ int h, t;
 bool res;
 //Set the LCD number of text and number of lines
 const int LCDTEXT = 16, LCDLINE = 2;
-int BTNR = 0, BTNL = 0, REJWiFi = 0, URLP = 0, UIDP = 0, POST_interval = 300000, Timeout = 0, LeftBTN = 0, RightBTN = 0;
+int BTNR = 0, BTNL = 0, REJWiFi = 0, URLP = 0, UIDP = 0, POST_interval = 300000, Timeout = 0, LeftBTN = 0, RightBTN = 0, e = 0;
 int prevTime, currentTime, duration, POSTprevTime;
 
 void setup() {
@@ -71,10 +71,10 @@ void setup() {
   //Start WiFi manager to connect to WiFi, if no WiFi go into Access Point
   //Access point started with Name and Password
   delay(1000);
-    lcd.clear();
-    lcd.print("Starting WiFi");
-    lcd.setCursor(0, 1);
-    lcd.print("Manager");
+  lcd.clear();
+  lcd.print("Starting WiFi");
+  lcd.setCursor(0, 1);
+  lcd.print("Manager");
   res = wm.autoConnect("TEMPOHUM", "SENSYNC+TEMPOHUM");
   //if WiFi Connection fails
   if (!res) {
@@ -164,7 +164,7 @@ void loop() {
     LeftBTN = digitalRead(BTN1);
     RightBTN = digitalRead(BTN2);
     delay(1);
-    if(LeftBTN && RightBTN){
+    if (LeftBTN && RightBTN) {
       break;
     }
   } while (digitalRead(BTN1) || digitalRead(BTN2) && !(digitalRead(BTN1) && digitalRead(BTN2)) );
@@ -209,7 +209,7 @@ void loop() {
         //Serial.println("Retry");
         return;
       }
-      else if (digitalRead(BTN1)||Timeout==1) {
+      else if (digitalRead(BTN1) || Timeout == 1) {
         REJWiFi = 1;
         lcd.clear();
         lcd.print("Continue without");
@@ -249,7 +249,7 @@ void loop() {
       delay(10);
       if (duration > 5000)
       {
-        
+
         wm.resetSettings();
         WiFi.disconnect();
         lcd.clear();
@@ -297,7 +297,9 @@ void loop() {
     } while (!digitalRead(BTN2) && duration < 5000);
     prevTime = currentTime;
     DHTLCDPRINT();
-    while(digitalRead(BTN1) || digitalRead(BTN2)){delay(1);}
+    while (digitalRead(BTN1) || digitalRead(BTN2)) {
+      delay(1);
+    }
   }
   else if (RightBTN) {
     //Serial.println("Right");
@@ -345,7 +347,9 @@ void loop() {
       } while (!digitalRead(BTN1) && !digitalRead(BTN2) && duration < 10000 );
     }
     DHTLCDPRINT();
-    while(digitalRead(BTN1) || digitalRead(BTN2)){delay(1);}
+    while (digitalRead(BTN1) || digitalRead(BTN2)) {
+      delay(1);
+    }
   }
   currentTime = millis();
   duration = currentTime - POSTprevTime;
@@ -376,8 +380,11 @@ void DHTSENSOR() {
   float T = dht.readTemperature();
   H = H * 100.0;
   T = T * 100.0;
-  h=(int)H;
-  t=(int)T;
+  h = (int)H;
+  t = (int)T;
+  if (t > 10000 || h > 10000) {
+    e = 1;
+  }
 }
 
 void POSTREQ() {
@@ -385,27 +392,34 @@ void POSTREQ() {
   HTTPClient http;
   sprintf(POSTURL, "%slist/sensor/%s.json", WebURL, UID);
   //Serial.println("Sending data");
-  lcd.clear();
-  lcd.print("Sending data");
-  http.begin(wifiClient, POSTURL);
-  StaticJsonDocument<256> dat;
-  String postjson;
-  dat["UID"] = UID;
-  dat["Temperature"] = t / 100.0;
-  dat["Humidity"] = h / 100.0;
-  serializeJson(dat, postjson);
-  //Serial.println(POSTURL + postjson);
-  http.addHeader("Content-Type", "application/json");
-  int httpResponseCode = http.POST(postjson);
-  //Serial.println("HttpResponse=" + String(httpResponseCode));
-  response = http.getString();
-  //Serial.println(response);
-  if (httpResponseCode >= 200 && httpResponseCode < 300) {
+  if (e) {
     lcd.clear();
-    lcd.print("Data sent");
-    //Serial.println("Data sent");
-
+    lcd.print("Invalid Data");
+    e = 0;
   }
-  http.end();
+  else {
+    lcd.clear();
+    lcd.print("Sending data");
+    http.begin(wifiClient, POSTURL);
+    StaticJsonDocument<256> dat;
+    String postjson;
+    dat["UID"] = UID;
+    dat["Temperature"] = t / 100.0;
+    dat["Humidity"] = h / 100.0;
+    serializeJson(dat, postjson);
+    //Serial.println(POSTURL + postjson);
+    http.addHeader("Content-Type", "application/json");
+    int httpResponseCode = http.POST(postjson);
+    //Serial.println("HttpResponse=" + String(httpResponseCode));
+    response = http.getString();
+    //Serial.println(response);
+    if (httpResponseCode >= 200 && httpResponseCode < 300) {
+      lcd.clear();
+      lcd.print("Data sent");
+      //Serial.println("Data sent");
+
+    }
+    http.end();
+  }
   delay(2000);
 }
